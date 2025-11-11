@@ -4,6 +4,7 @@ EXPLORADOR DE RED - Entiende tu archivo GEXF
 
 Este script te ayuda a entender qué contiene exactamente
 tu archivo de red antes de visualizarlo.
+Author: Luis Castellanos - le.castellanos10@uniandes.edu.co
 
 USO:
 ----
