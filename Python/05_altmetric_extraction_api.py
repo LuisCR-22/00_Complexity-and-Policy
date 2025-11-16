@@ -204,7 +204,7 @@ def main():
     Usage example
     """
     # REPLACE THIS with your actual API URL from Altmetric
-    API_URL = "https://www.altmetric.com/explorer/api/research_outputs?digest=1213441e039fc8fb4bb90f80a4061a296b1ac7f8&filter%5Bidentifier_list_id%5D=ad1030f9-915b-494e-a07d-6890d69d979a&filter%5Bscope%5D=all&filter%5Bview%5D=list&key=fb1d3a1ba457433cbb7e1de999e1033c"
+    API_URL = ""
     
     # Example: 
     # API_URL = "https://www.altmetric.com/explorer/api/research_outputs?digest=abc123&filter[identifier_list_id]=ad1030f9-915b-494e-a07d-6890d69d979a"
