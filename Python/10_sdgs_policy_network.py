@@ -1,13 +1,13 @@
 """
 ==============================================================================
-FIXED CITATION NETWORK FOR SDG ANALYSIS
+FIXED CITATION NETWORK FOR SDG ANALYSIS - IMPROVED VISUALIZATION
 ==============================================================================
 
-This script fixes the citation network visualization by including papers
-that are referenced by policy-cited papers, even if they don't have
-policy citations themselves.
+This script creates a citation network with larger SDG labels and explains
+the node placement algorithm.
 
-Author: Luis Castellanos
+Author: Luis Castellanos - le.castellanos10@uniandes.edu.co
+Global Complexity School 2025 Final Project
 Date: November 2025
 ==============================================================================
 """
@@ -43,7 +43,7 @@ PLOT_SETTINGS = {
     'axes.titlesize': 15,
     'xtick.labelsize': 11,
     'ytick.labelsize': 11,
-    'legend.fontsize': 10
+    'legend.fontsize': 13  # Increased from 10 to 13
 }
 
 for key, value in PLOT_SETTINGS.items():
@@ -73,9 +73,6 @@ def create_fixed_citation_network(df_sdg):
     """
     Create citation network including ALL papers with SDG info,
     but highlighting those with policy citations.
-    
-    This fixes the issue where papers with 0 policy citations were
-    excluded, even though they were referenced by policy-cited papers.
     """
     print("="*80)
     print("CREATING FIXED CITATION NETWORK")
@@ -92,8 +89,6 @@ def create_fixed_citation_network(df_sdg):
     
     print(f"Using '{id_col}' as node identifier")
     
-    # KEY CHANGE: Include ALL papers with SDG, not just those with policy citations
-    # We'll use node size to show policy impact
     print(f"Total papers with SDG info: {len(df_sdg):,}")
     papers_with_policy = len(df_sdg[df_sdg['policy_mentions_total_alt'].fillna(0) > 0])
     print(f"Papers with policy citations: {papers_with_policy:,}")
@@ -159,8 +154,6 @@ def create_fixed_citation_network(df_sdg):
             for ref_id in ref_list:
                 ref_id = ref_id.strip()
                 
-                # KEY FIX: Since we now include ALL papers with SDG in nodes,
-                # we should be able to find more matches
                 if ref_id in paper_ids and ref_id in G.nodes():
                     G.add_edge(source_id, ref_id)
                     edges_added += 1
@@ -174,37 +167,9 @@ def create_fixed_citation_network(df_sdg):
     
     if edges_added == 0:
         print("\n⚠ WARNING: No citation edges found!")
-        print("  Checking sample papers for debugging...")
-        
-        # Debug: Check the specific papers the user mentioned
-        test_ids = [
-            'https://openalex.org/W3080193573',  # Should be referenced
-            'https://openalex.org/W2997929025',  # Should reference W3080193573
-            'https://openalex.org/W2569739170'   # Should reference W3080193573
-        ]
-        
-        for test_id in test_ids:
-            if test_id in paper_ids:
-                print(f"\n  ✓ Paper {test_id} IS in paper_ids")
-                if test_id in G.nodes():
-                    print(f"    ✓ Paper IS in network nodes")
-                    # Check what it references
-                    paper_row = df_sdg[df_sdg[id_col] == test_id].iloc[0]
-                    refs = str(paper_row.get('referenced_works_oa', ''))
-                    if refs and refs != 'nan':
-                        ref_list = [r.strip() for r in refs.split(';') if r.strip()]
-                        print(f"    • Has {len(ref_list)} references")
-                        # Check if any are in the network
-                        matches = [r for r in ref_list if r in paper_ids]
-                        print(f"    • {len(matches)} references are in corpus")
-                        if matches:
-                            print(f"    • Example matches: {matches[:3]}")
-                else:
-                    print(f"    ✗ Paper NOT in network nodes")
-            else:
-                print(f"\n  ✗ Paper {test_id} NOT in paper_ids")
+        return
     
-    # Remove isolated nodes only if we have edges
+    # Remove isolated nodes
     if edges_added > 0:
         nodes_with_edges = set()
         for edge in G.edges():
@@ -222,6 +187,15 @@ def create_fixed_citation_network(df_sdg):
     
     # Prepare visualization
     print("Creating network visualization...")
+    print("\n📐 Layout Algorithm Explanation:")
+    print("   Using Spring/Force-Directed Layout (ForceAtlas2 style):")
+    print("   • Nodes REPEL each other (like magnets with same poles)")
+    print("   • Edges ACT AS SPRINGS pulling connected nodes together")
+    print("   • Algorithm iterates 50 times to reach equilibrium")
+    print("   • Result: Highly connected papers cluster together")
+    print("   •         Loosely connected papers spread apart")
+    print("   • Papers citing each other → positioned close")
+    print("   • Papers in different research areas → pushed apart\n")
     
     # Get unique SDGs and create color map
     sdgs_in_network = set(G.nodes[node]['sdg'] for node in G.nodes())
@@ -230,7 +204,6 @@ def create_fixed_citation_network(df_sdg):
     sdg_color_map = {sdg: colors_palette[i] for i, sdg in enumerate(sdg_list)}
     
     # Calculate node sizes based on policy citations (log scale)
-    # Include nodes with 0 policy citations but make them visible
     node_sizes = []
     node_colors = []
     
@@ -248,30 +221,27 @@ def create_fixed_citation_network(df_sdg):
         # Color by SDG
         node_colors.append(sdg_color_map.get(sdg, (0.5, 0.5, 0.5, 1.0)))
     
-    # Calculate layout
+    # Calculate layout - Spring-based force-directed
     print("Computing layout (this may take a moment for large networks)...")
-    if G.number_of_edges() > 0:
-        try:
-            pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
-        except:
-            pos = nx.kamada_kawai_layout(G)
-    else:
-        pos = nx.circular_layout(G)
+    try:
+        pos = nx.spring_layout(G, k=2, iterations=50, seed=42)
+    except:
+        pos = nx.kamada_kawai_layout(G)
     
     # Create figure
     fig, ax = plt.subplots(figsize=(24, 24))
     
-    # Draw edges (if any)
-    if G.number_of_edges() > 0:
-        nx.draw_networkx_edges(G, pos, 
-                              alpha=0.2, 
-                              width=0.5,
-                              edge_color='gray', 
-                              arrows=True,
-                              arrowsize=10,
-                              arrowstyle='->',
-                              connectionstyle='arc3,rad=0.1',
-                              ax=ax)
+    # Draw edges
+    # Draw edges
+    nx.draw_networkx_edges(G, pos, 
+                      alpha=0.5,          # CHANGE: from 0.2 to 0.5 (darker edges)
+                      width=1.0,          # CHANGE: from 0.5 to 1.0 (thicker edges)
+                      edge_color='darkgray',  # CHANGE: from 'gray' to 'darkgray'
+                      arrows=True,
+                      arrowsize=15,       # CHANGE: from 10 to 15 (larger arrows)
+                      arrowstyle='->',
+                      connectionstyle='arc3,rad=0.1',
+                      ax=ax)
     
     # Draw nodes
     nx.draw_networkx_nodes(G, pos, 
@@ -282,10 +252,10 @@ def create_fixed_citation_network(df_sdg):
                           linewidths=1.2, 
                           ax=ax)
     
-    # Create legend for SDGs
+    # Create legend for SDGs with BIGGER font
     from matplotlib.patches import Patch
     
-    if len(sdg_list) <= 15:
+    if len(sdg_list) <= 20:
         legend_elements = [Patch(facecolor=sdg_color_map[sdg], 
                                 edgecolor='black', 
                                 label=sdg, linewidth=1)
@@ -302,60 +272,50 @@ def create_fixed_citation_network(df_sdg):
                                      label=f'... and {len(sdg_list)-10} more', 
                                      linewidth=1))
     
+    # BIGGER LEGEND: increased fontsize from 11 to 14
     ax.legend(handles=legend_elements, 
              loc='upper left', 
-             fontsize=11, 
+             fontsize=18,  # INCREASED from 11
              title='SDGs', 
-             title_fontsize=13,
+             title_fontsize=16,  # INCREASED from 13
              frameon=True, 
              fancybox=True, 
              shadow=True,
              ncol=2 if len(legend_elements) > 10 else 1)
     
     # Title
-    if G.number_of_edges() > 0:
-        title_text = ('Citation Network: Complexity Science Papers with SDG Classification\n' +
-                     'Node size = Policy citations (smaller nodes = 0 citations) | ' +
-                     'Node color = SDG | Edges = Citation relationships')
-    else:
-        title_text = ('Papers with SDG Classification\n' +
-                     'Node size = Policy citations (smaller nodes = 0 citations) | ' +
-                     'Node color = SDG | (No internal citations found)')
+    title_text = ('Citation Network: Complexity Science Papers with SDG Classification\n' +
+                 'Node size = Policy citations (smaller nodes = 0 citations) | ' +
+                 'Node color = SDG | Edges = Citation relationships')
     
     ax.set_title(title_text, fontsize=18, fontweight='bold', pad=30)
     ax.axis('off')
     
-    # Add statistics
-    if G.number_of_edges() > 0:
-        density = nx.density(G)
-        avg_degree = sum(dict(G.degree()).values()) / len(G.nodes()) if len(G.nodes()) > 0 else 0
-        
-        # Count nodes with and without policy citations
-        nodes_with_policy = sum(1 for node in G.nodes() if G.nodes[node].get('policy_citations', 0) > 0)
-        nodes_without_policy = len(G.nodes()) - nodes_with_policy
-        
-        stats_text = (f"Network Statistics:\n"
-                     f"Total Nodes: {len(G.nodes()):,}\n"
-                     f"  • With policy citations: {nodes_with_policy:,}\n"
-                     f"  • Without policy citations: {nodes_without_policy:,}\n"
-                     f"Edges: {len(G.edges()):,}\n"
-                     f"Density: {density:.4f}\n"
-                     f"Avg Degree: {avg_degree:.2f}")
-    else:
-        nodes_with_policy = sum(1 for _, row in df_sdg.iterrows() 
-                              if pd.notna(row.get('policy_mentions_total_alt', 0)) 
-                              and row.get('policy_mentions_total_alt', 0) > 0)
-        
-        stats_text = (f"Network Statistics:\n"
-                     f"Nodes: {len(G.nodes()):,}\n"
-                     f"  • With policy citations: {nodes_with_policy:,}\n"
-                     f"  • Referenced but no policy cites: {len(G.nodes()) - nodes_with_policy:,}\n"
-                     f"No citation edges\n"
-                     f"(Papers don't cite each other)")
+    # Add statistics with layout explanation
+    density = nx.density(G)
+    avg_degree = sum(dict(G.degree()).values()) / len(G.nodes()) if len(G.nodes()) > 0 else 0
+    
+    # Count nodes with and without policy citations
+    nodes_with_policy = sum(1 for node in G.nodes() if G.nodes[node].get('policy_citations', 0) > 0)
+    nodes_without_policy = len(G.nodes()) - nodes_with_policy
+    
+    stats_text = (f"Network Statistics:\n"
+                 f"Total Nodes: {len(G.nodes()):,}\n"
+                 f"  • With policy citations: {nodes_with_policy:,}\n"
+                 f"  • Without policy citations: {nodes_without_policy:,}\n"
+                 f"Edges: {len(G.edges()):,}\n"
+                 f"Density: {density:.4f}\n"
+                 f"Avg Degree: {avg_degree:.2f}\n\n"
+                 f"Layout Algorithm:\n"
+                 f"Spring/Force-Directed (k=2, iter=50)\n"
+                 f"• Nodes repel (like magnets)\n"
+                 f"• Edges attract (like springs)\n"
+                 f"• Connected papers cluster together\n"
+                 f"• Different domains spread apart")
     
     ax.text(0.02, 0.02, stats_text, transform=ax.transAxes,
-           fontsize=12, verticalalignment='bottom',
-           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8, pad=0.5))
+           fontsize=11, verticalalignment='bottom',
+           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.85, pad=0.7))
     
     plt.tight_layout()
     output_path = f"{OUTPUT_IMAGES}/12_policy_network_sdg_color_FIXED.png"
@@ -365,22 +325,20 @@ def create_fixed_citation_network(df_sdg):
     print(f"✓ Saved: {output_path}")
     print(f"  • Visualized {len(G.nodes())} papers")
     print(f"  • {len(sdgs_in_network)} SDGs represented")
-    if G.number_of_edges() > 0:
-        print(f"  • Citation edges: {len(G.edges())}")
-        
-        # Show which papers have the most incoming citations
-        in_degrees = dict(G.in_degree())
-        if in_degrees:
-            top_cited = sorted(in_degrees.items(), key=lambda x: x[1], reverse=True)[:5]
-            print(f"\n  📌 Most cited papers in network:")
-            for node_id, in_deg in top_cited:
-                if in_deg > 0:
-                    title = G.nodes[node_id].get('title', 'Unknown')[:60]
-                    policy = G.nodes[node_id].get('policy_citations', 0)
-                    print(f"     • {title}...")
-                    print(f"       Cited by {in_deg} papers in network, {policy:.0f} policy citations")
-    else:
-        print(f"  • No citation edges (papers in corpus don't cite each other)")
+    print(f"  • Citation edges: {len(G.edges())}")
+    
+    # Show which papers have the most incoming citations
+    in_degrees = dict(G.in_degree())
+    if in_degrees:
+        top_cited = sorted(in_degrees.items(), key=lambda x: x[1], reverse=True)[:5]
+        print(f"\n  📌 Most cited papers in network:")
+        for node_id, in_deg in top_cited:
+            if in_deg > 0:
+                title = G.nodes[node_id].get('title', 'Unknown')[:60]
+                policy = G.nodes[node_id].get('policy_citations', 0)
+                sdg = G.nodes[node_id].get('sdg', 'Unknown')
+                print(f"     • {title}...")
+                print(f"       SDG: {sdg} | Cited by {in_deg} papers | Policy citations: {policy:.0f}")
     print()
 
 # ============================================================================
@@ -395,4 +353,34 @@ if __name__ == "__main__":
     print("="*80)
     print(f"\n📁 Output saved to: {OUTPUT_IMAGES}")
     print(f"   File: 12_policy_network_sdg_color_FIXED.png\n")
-    print("="*80 + "\n")
+    
+    print("📐 NODE PLACEMENT LOGIC (Spring/Force-Directed Layout):")
+    print("   " + "="*70)
+    print("   The algorithm simulates a physical system:")
+    print()
+    print("   1. REPULSION: All nodes push away from each other")
+    print("      → Like magnets with the same pole")
+    print("      → Prevents nodes from overlapping")
+    print("      → Creates space in the visualization")
+    print()
+    print("   2. ATTRACTION: Edges act as springs")
+    print("      → Papers that cite each other are pulled together")
+    print("      → Strength controlled by parameter k=2")
+    print("      → Creates clusters of related papers")
+    print()
+    print("   3. ITERATION: Runs 50 times (iterations=50)")
+    print("      → Each iteration adjusts positions slightly")
+    print("      → Converges to stable equilibrium")
+    print("      → Balances repulsion and attraction forces")
+    print()
+    print("   4. RESULT:")
+    print("      ✓ Tightly connected papers → cluster together")
+    print("      ✓ Weakly connected papers → pushed apart")
+    print("      ✓ Papers from same SDG → often group (if they cite each other)")
+    print("      ✓ Different research communities → separated in space")
+    print()
+    print("   This is why the visualization looks 'organic' - it reveals")
+    print("   the natural community structure through citation patterns!")
+    print("   " + "="*70)
+    
+    print("\n" + "="*80 + "\n")

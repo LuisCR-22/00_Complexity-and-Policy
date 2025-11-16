@@ -220,7 +220,7 @@ def create_enhanced_distribution(sdg_stats, total_papers, total_policy_mentions,
                 f"Number of SDGs: {len(sdg_stats)}\n"
                 f"Media = News + Blogs + Videos + Podcasts")
     ax1.text(0.02, 0.98, note_text, transform=ax1.transAxes,
-            fontsize=9, verticalalignment='top',
+            fontsize=9, verticalalignment='bottom', horizontalalignment='right',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.85, pad=0.5))
     
     plt.tight_layout()
@@ -385,7 +385,7 @@ def create_scatter_plot(sdg_stats, total_papers, total_policy_mentions):
     print("[3/7] CREATING SCATTER PLOT: CORPUS SHARE VS POLICY SHARE")
     print("="*80)
     
-    fig, ax = plt.subplots(figsize=(16, 12))
+    fig, ax = plt.subplots(figsize=(12, 12))
     
     # Create scatter plot with size based on total papers
     scatter = ax.scatter(sdg_stats['Corpus_Share_%'], 
@@ -1433,7 +1433,7 @@ def create_policy_effectiveness_analysis(sdg_stats, df_sdg):
            "• PEI < 0.75: Low policy impact relative to corpus size\n"
            "\nLarger bubbles = more effective policy translation")
     ax2.text(0.98, 0.02, note, transform=ax2.transAxes,
-            fontsize=9, verticalalignment='bottom', horizontalalignment='right',
+            fontsize=10, verticalalignment='bottom', horizontalalignment='right',
             bbox=dict(boxstyle='round', facecolor='lightyellow', 
                      alpha=0.9, pad=0.5, linewidth=1))
     
@@ -1451,7 +1451,7 @@ def create_policy_effectiveness_analysis(sdg_stats, df_sdg):
     # =========================================================================
     # SEPARATE IMAGE 1: Left panel only
     # =========================================================================
-    fig1, ax1 = plt.subplots(figsize=(12, 12))
+    fig1, ax1 = plt.subplots(figsize=(12, 12)) 
     
     y_pos = np.arange(len(sdg_stats_pei))
     colors = ['#27AE60' if pei > 1.5 else '#F39C12' if pei > 0.75 else '#E74C3C' 
